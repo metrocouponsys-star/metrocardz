@@ -79,3 +79,8 @@ env
 NEXT_PUBLIC_USE_MOCK_DATA=true
 Set to true (default) to run the frontend independently using fast in-memory mock data.
 Set to false to connect the frontend directly to your running FastAPI instance at http://localhost:8000.
+Error running SQL query
+Failed to run sql query: ERROR:  42P01: relation "merchant_users" does not exist
+git remote set-url origin https://IamTc4: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@github.com/metrocouponsys-star/metrocardz.git
+>> 
+   
