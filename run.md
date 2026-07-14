@@ -83,4 +83,32 @@ Error running SQL query
 Failed to run sql query: ERROR:  42P01: relation "merchant_users" does not exist
 git remote set-url origin https://IamTc4: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@github.com/metrocouponsys-star/metrocardz.git
 >> 
-   
+   If the OAuth 2.0 Client IDs table is empty, it means you need to create one first. Here is the exact step-by-step guide to create it:
+
+Step 1: Create the Credentials
+Go to the Google Cloud Console Credentials Page.
+At the top of the page, click the + CREATE CREDENTIALS button.
+Select OAuth client ID from the dropdown.
+Step 2: Configure the Client ID
+If Google asks you to "Configure Consent Screen" first, do that quickly (choose External, fill in the App name as Metro Cardz and your email, then click Save).
+
+On the Create OAuth client ID page:
+
+Application type: Choose Web application.
+Name: Type Metro Cardz Client.
+Under Authorized JavaScript origins, click + ADD URI and paste:
+https://metrocardz.in
+http://localhost:3000 (for testing locally)
+Under Authorized redirect URIs, click + ADD URI and paste the callback URL from Supabase:
+https://dyzjsykvziquqsadnqzu.supabase.co/auth/v1/callback
+Step 3: Copy the Codes
+Click the Create button.
+A popup will immediately appear titled "OAuth client created".
+Copy the Your Client ID string (it ends in .apps.googleusercontent.com).
+Copy the Your Client Secret string.
+Paste both of these into your Supabase dashboard under the Google Provider and click Save.
+Client ID
+182279603296-rvngae1605s3ar77hpb93prkh0domnhj.apps.googleusercontent.com
+You will no longer be able to view or download the client secret once you close this dialog. Make sure you have copied or downloaded the information below and securely stored it.
+Client secret
+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
