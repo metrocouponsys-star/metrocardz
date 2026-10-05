@@ -2,7 +2,7 @@
 # ── Offers ──────────────────────────────────────────────────────────────────────────────
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Query, Request
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func as sqlfunc, desc, cast, Date
+from sqlalchemy import func as sqlfunc, or_, desc, cast, Date
 from typing import List, Optional
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
@@ -573,7 +573,7 @@ def get_dashboard_stats(
         celebration_candidates = db.query(Member.date_of_birth, Member.anniversary_date).filter(
             Member.merchant_id == merchant_id,
             Member.status != "deactivated",
-            sqlfunc.or_(
+            or_(
                 Member.date_of_birth.isnot(None),
                 Member.anniversary_date.isnot(None),
             ),
@@ -629,7 +629,7 @@ def get_dashboard_celebrations(
     members = db.query(Member).filter(
         Member.merchant_id == merchant_id,
         Member.status != "deactivated",
-        sqlfunc.or_(
+        or_(
             Member.date_of_birth.isnot(None),
             Member.anniversary_date.isnot(None),
         ),

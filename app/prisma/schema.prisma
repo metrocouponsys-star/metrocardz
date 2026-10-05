@@ -1,0 +1,121 @@
+// Metro Cardz — Deals Platform Prisma Schema
+// Database: MySQL (Hostinger-managed)
+// Run: npx prisma generate && npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Partner status enum ─────────────────────────────────────────────────────
+// COMPLIANCE-CRITICAL: every deal render reads partner_status to determine
+// badge, CTA text, and redirect behaviour. Never hardcode partner language.
+enum PartnerStatus {
+  public_link        // Plain listing — no Metro Cardz branding claim
+  affiliate          // Affiliate link, "Available via Metro Cardz" only
+  authorised_partner // Can show "Metro Cardz Partner" badge + agreed discounts
+  direct_merchant    // Full branding, in-house negotiated offer, top priority
+}
+
+// ── Category ────────────────────────────────────────────────────────────────
+model Category {
+  id     Int     @id @default(autoincrement())
+  name   String
+  slug   String  @unique
+  icon   String? // Emoji or icon identifier for tile display
+  brands Brand[]
+
+  @@map("deals_categories")
+}
+
+// ── City ────────────────────────────────────────────────────────────────────
+model City {
+  id     Int     @id @default(autoincrement())
+  name   String
+  slug   String  @unique
+  brands Brand[]
+
+  @@map("deals_cities")
+}
+
+// ── Brand ────────────────────────────────────────────────────────────────────
+model Brand {
+  id            Int           @id @default(autoincrement())
+  name          String
+  categoryId    Int
+  category      Category      @relation(fields: [categoryId], references: [id])
+  cityId        Int
+  city          City          @relation(fields: [cityId], references: [id])
+  description   String?       @db.Text
+  logoUrl       String?
+  website       String?
+  instagram     String?
+  phone         String?
+  mapsUrl       String?
+  partnerStatus PartnerStatus
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  deals         Deal[]
+
+  @@index([categoryId])
+  @@index([cityId])
+  @@index([partnerStatus])
+  @@map("deals_brands")
+}
+
+// ── Deal ─────────────────────────────────────────────────────────────────────
+model Deal {
+  id               Int       @id @default(autoincrement())
+  brandId          Int
+  brand            Brand     @relation(fields: [brandId], references: [id])
+  offerTitle       String
+  offerPercentage  Int?
+  offerType        String    // "percentage" | "bogo" | "flat" | "package" | "complimentary"
+  startDate        DateTime
+  endDate          DateTime
+  bookingUrl       String?
+  affiliateUrl     String?
+  terms            String?   @db.Text
+  lastVerifiedDate DateTime
+  featured         Boolean   @default(false)
+  active           Boolean   @default(true)
+  heroImageUrl     String?   // Optional hero image for deal detail and grid cards
+  createdAt        DateTime  @default(now())
+
+  clicks           ClickLog[]
+
+  @@index([brandId])
+  @@index([active, featured])
+  @@index([endDate])
+  @@map("deals_deals")
+}
+
+// ── Admin User ────────────────────────────────────────────────────────────────
+// Deals-platform admin access only — email/password + bcrypt, no OAuth
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+
+  @@map("deals_admin_users")
+}
+
+// ── Click Log (Phase 1 tracking) ─────────────────────────────────────────────
+// Every redirect through /api/redirect/[id] logs here
+model ClickLog {
+  id        Int      @id @default(autoincrement())
+  dealId    Int
+  deal      Deal     @relation(fields: [dealId], references: [id])
+  timestamp DateTime @default(now())
+  referrer  String?
+  userAgent String?
+
+  @@index([dealId, timestamp])
+  @@map("deals_click_log")
+}

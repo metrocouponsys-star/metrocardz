@@ -2,18 +2,39 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
-  // Static export for Hostinger Apache hosting — no Node.js server required
-  output: 'export',
-  trailingSlash: true,
+  // ── Server mode (Node.js) — required for Deals Platform API routes + ISR ──
+  // Hostinger Web App Hosting: build = `npm run build`, start = `npm run start`
+  // No static export — we need server-side rendering and API routes at runtime.
+  trailingSlash: false,
+
   // Fix workspace root detection when there are multiple lockfiles
   outputFileTracingRoot: path.join(__dirname),
-  // Required for static export (Next.js built-in image optimisation needs a server)
+
+  // Image optimisation — allow Supabase storage + known CDN domains for brand logos
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.supabase.co' },
+      { protocol: 'https', hostname: '**.supabase.in' },
+      { protocol: 'https', hostname: 'metrocardz.in' },
+      { protocol: 'https', hostname: 'images.unsplash.com' }, // placeholder images in dev
+    ],
   },
-  // Disable server file tracing for static exports (prevents Windows nft.json ENOENT lock issue)
-  outputFileTracingExcludes: {
-    '*': ['**/*'],
+
+  // Prisma client must run on the server — exclude from Edge runtime
+  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+
+  // Security headers for all routes
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+    ];
   },
 };
 

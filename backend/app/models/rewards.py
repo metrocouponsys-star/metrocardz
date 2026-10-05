@@ -97,7 +97,7 @@ class ScratchCard(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     merchant_id = Column(String, ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False)
     member_id = Column(String, ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
-    reward_type = Column(String, nullable=False)
+    reward_type = Column(Enum('points', 'gift', name='scratch_reward_type', create_type=False), nullable=False)
     reward_value = Column(Text, nullable=False)      # points amount OR voucher code OR description
     is_revealed = Column(Boolean, default=False, nullable=False)
     revealed_at = Column(DateTime(timezone=True), nullable=True)
