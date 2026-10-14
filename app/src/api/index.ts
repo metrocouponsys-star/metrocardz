@@ -14,7 +14,12 @@
 import * as mock from './client';
 import * as real from './realClient';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== 'false';
+// Support both Vite (import.meta.env) and Next.js (process.env) builds
+const USE_MOCK_RAW =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_USE_MOCK_DATA) ??
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_USE_MOCK_DATA) ??
+  'true';
+const USE_MOCK = USE_MOCK_RAW !== 'false';
 const api = USE_MOCK ? mock : real;
 
 export const login = api.login;

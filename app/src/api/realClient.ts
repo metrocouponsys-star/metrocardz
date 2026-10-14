@@ -14,7 +14,12 @@ import type {
 } from '../types';
 
 // ── HTTP Client ───────────────────────────────────────────────────────────────
-const BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+// Support both Vite (import.meta.env.VITE_*) and Next.js (process.env.NEXT_PUBLIC_*) builds
+const BASE_URL = (
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
+  'http://localhost:8000'
+).replace(/\/$/, '');
 const API = `${BASE_URL}/api/v1`;
 
 import { useAuthStore } from '../store/authStore';
