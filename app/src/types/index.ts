@@ -46,6 +46,9 @@ export interface Merchant {
   referral_bonus_points?: number;
   created_at: string;
   member_count?: number;
+  owner_name?: string;
+  owner_phone?: string;
+  owner_email?: string;
 }
 
 

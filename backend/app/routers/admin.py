@@ -56,6 +56,11 @@ def list_merchants(admin=Depends(require_super_admin), db: Session = Depends(get
     merchants = db.query(Merchant).all()
     for m in merchants:
         m.member_count = db.query(Member).filter(Member.merchant_id == m.id).count()
+        owner = db.query(MerchantUser).filter(MerchantUser.merchant_id == m.id, MerchantUser.role == "owner").first()
+        if owner:
+            m.owner_name = owner.name
+            m.owner_phone = owner.phone
+            m.owner_email = owner.email
     return merchants
 
 
@@ -121,11 +126,133 @@ def update_merchant(
     merchant = db.query(Merchant).filter(Merchant.id == merchant_id).first()
     if not merchant:
         raise HTTPException(status_code=404, detail="Merchant not found")
-    for k, v in payload.model_dump(exclude_none=True).items():
-        setattr(merchant, k, v)
+
+    data = payload.model_dump(exclude_none=True)
+
+    # Extract owner fields
+    owner_name = data.pop("owner_name", None)
+    owner_phone = data.pop("owner_phone", None)
+    owner_email = data.pop("owner_email", None)
+
+    owner = db.query(MerchantUser).filter(
+        MerchantUser.merchant_id == merchant.id,
+        MerchantUser.role == "owner"
+    ).first()
+
+    if owner:
+        if owner_name is not None and owner_name.strip():
+            owner.name = owner_name.strip()
+        if owner_phone is not None and owner_phone.strip():
+            clean_phone = owner_phone.replace(" ", "")
+            existing_phone = db.query(MerchantUser).filter(
+                MerchantUser.phone == clean_phone,
+                MerchantUser.id != owner.id
+            ).first()
+            if existing_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number is already registered to another user."
+                )
+            owner.phone = clean_phone
+        if owner_email is not None:
+            clean_email = owner_email.strip().lower() if owner_email.strip() else None
+            if clean_email:
+                existing_email = db.query(MerchantUser).filter(
+                    MerchantUser.email == clean_email,
+                    MerchantUser.id != owner.id
+                ).first()
+                if existing_email:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Email address is already registered to another user."
+                    )
+            owner.email = clean_email
+    elif (owner_name and owner_name.strip()) or (owner_phone and owner_phone.strip()):
+        clean_phone = (owner_phone or "").replace(" ", "")
+        if clean_phone:
+            new_owner = MerchantUser(
+                merchant_id=merchant.id,
+                name=owner_name.strip() if owner_name else "Owner",
+                phone=clean_phone,
+                email=owner_email.strip().lower() if owner_email and owner_email.strip() else None,
+                role="owner",
+                password_hash=hash_password(clean_phone),
+            )
+            db.add(new_owner)
+
+    for k, v in data.items():
+        if hasattr(merchant, k):
+            setattr(merchant, k, v)
+
+    _log_action(db, user.id, merchant.id, "update_merchant", f"Updated merchant {merchant.business_name}")
     db.commit()
     db.refresh(merchant)
+
+    merchant.member_count = db.query(Member).filter(Member.merchant_id == merchant.id).count()
+    owner_ref = db.query(MerchantUser).filter(MerchantUser.merchant_id == merchant.id, MerchantUser.role == "owner").first()
+    if owner_ref:
+        merchant.owner_name = owner_ref.name
+        merchant.owner_phone = owner_ref.phone
+        merchant.owner_email = owner_ref.email
+
     return merchant
+
+
+@router.delete("/merchants/{merchant_id}", status_code=204)
+def delete_merchant(
+    merchant_id: str,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete a merchant account and cascade clean related records."""
+    merchant = db.query(Merchant).filter(Merchant.id == merchant_id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+
+    biz_name = merchant.business_name
+
+    # 1. Unassign any physical cards allocated to this merchant
+    db.query(CardInventoryItem).filter(CardInventoryItem.allocated_merchant_id == merchant_id).update({
+        "allocated_merchant_id": None,
+        "linked_member_id": None,
+        "allocated_at": None,
+        "linked_at": None,
+        "status": "unassigned",
+    }, synchronize_session=False)
+
+    # 2. Nullify merchant_id in admin audit logs to satisfy FK constraints
+    db.query(AdminAuditLog).filter(AdminAuditLog.merchant_id == merchant_id).update({
+        "merchant_id": None
+    }, synchronize_session=False)
+
+    # 3. Clean up related auxiliary records that might not cascade automatically
+    try:
+        from app.models.rewards import RewardCatalog, RewardClaim, CouponCode, GiftVoucher, PointsMultiplierRule, ScratchCard, LuckyDraw
+        from app.models.feedback import Feedback
+        from app.models.wallet import MerchantWalletClass
+        from app.models.event_log import EventLog
+
+        db.query(RewardClaim).filter(RewardClaim.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(RewardCatalog).filter(RewardCatalog.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(CouponCode).filter(CouponCode.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(GiftVoucher).filter(GiftVoucher.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(PointsMultiplierRule).filter(PointsMultiplierRule.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(ScratchCard).filter(ScratchCard.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(LuckyDraw).filter(LuckyDraw.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(Feedback).filter(Feedback.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(MerchantWalletClass).filter(MerchantWalletClass.merchant_id == merchant_id).delete(synchronize_session=False)
+        db.query(EventLog).filter(EventLog.merchant_id == merchant_id).delete(synchronize_session=False)
+    except Exception:
+        pass
+
+    # 4. Delete merchant record (cascades to users, members, offers, campaigns, reminder_rules)
+    db.delete(merchant)
+
+    # 5. Record admin audit log
+    _log_action(db, admin.id, None, "delete_merchant", f"Deleted merchant: {biz_name} ({merchant_id})")
+
+    db.commit()
+    return None
 
 
 @router.post("/merchants/{merchant_id}/suspend", response_model=MerchantOut)

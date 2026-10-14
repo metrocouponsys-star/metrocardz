@@ -730,12 +730,19 @@ export async function getAdminStats(): Promise<AdminDashboardStats> {
 
 export async function getAllMerchants(): Promise<Merchant[]> {
   await delay(FAKE_DELAY);
-  return db.merchants;
+  return db.merchants.map(m => {
+    const owner = db.merchantUsers.find(u => u.merchant_id === m.id && u.role === 'owner');
+    return {
+      ...m,
+      owner_name: owner?.name,
+      owner_phone: owner?.phone,
+      owner_email: owner?.email,
+    };
+  });
 }
 
 export async function getAdminMerchants(): Promise<Merchant[]> {
-  await delay(FAKE_DELAY);
-  return db.merchants;
+  return getAllMerchants();
 }
 
 export async function updateMerchantStatus(merchantId: string, status: 'active' | 'suspended'): Promise<Merchant> {
@@ -768,12 +775,41 @@ export async function createMerchantUser(merchantId: string, data: Partial<Merch
   return newUser;
 }
 
-export async function updateMerchant(merchantId: string, data: Partial<Merchant>): Promise<Merchant> {
+export async function updateMerchant(
+  merchantId: string,
+  data: Partial<Merchant> & { owner_name?: string; owner_phone?: string; owner_email?: string }
+): Promise<Merchant> {
   await delay(FAKE_DELAY);
   const idx = db.merchants.findIndex(m => m.id === merchantId);
   if (idx === -1) throw new Error('Merchant not found');
-  db.merchants[idx] = { ...db.merchants[idx], ...data };
-  return db.merchants[idx];
+  const { owner_name, owner_phone, owner_email, ...merchantData } = data;
+  db.merchants[idx] = { ...db.merchants[idx], ...merchantData };
+  const owner = db.merchantUsers.find(u => u.merchant_id === merchantId && u.role === 'owner');
+  if (owner) {
+    if (owner_name) owner.name = owner_name;
+    if (owner_phone) owner.phone = owner_phone;
+    if (owner_email !== undefined) owner.email = owner_email;
+  }
+  return {
+    ...db.merchants[idx],
+    owner_name: owner?.name || owner_name,
+    owner_phone: owner?.phone || owner_phone,
+    owner_email: owner?.email || owner_email,
+  };
+}
+
+export async function deleteMerchant(merchantId: string): Promise<void> {
+  await delay(FAKE_DELAY);
+  const idx = db.merchants.findIndex(m => m.id === merchantId);
+  if (idx !== -1) {
+    db.merchants.splice(idx, 1);
+  }
+  const userIndices = db.merchantUsers
+    .map((u, i) => (u.merchant_id === merchantId ? i : -1))
+    .filter(i => i !== -1);
+  for (let i = userIndices.length - 1; i >= 0; i--) {
+    db.merchantUsers.splice(userIndices[i], 1);
+  }
 }
 
 export async function uploadMerchantLogo(merchantId: string, logoDataUrl: string): Promise<Merchant> {

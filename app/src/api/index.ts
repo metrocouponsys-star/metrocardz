@@ -53,6 +53,7 @@ export const updateMerchantStatus = api.updateMerchantStatus;
 export const getMerchantUsers = api.getMerchantUsers;
 export const createMerchantUser = api.createMerchantUser;
 export const updateMerchant = api.updateMerchant;
+export const deleteMerchant = api.deleteMerchant;
 export const getMerchantProfile = api.getMerchantProfile;
 export const createMerchant = api.createMerchant;
 export const getPublicMemberView = api.getPublicMemberView;

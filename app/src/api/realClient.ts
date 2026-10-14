@@ -71,6 +71,10 @@ function autoInvalidateCache(method: string, path: string) {
     invalidateContaining('offers');
     invalidateContaining('membership-types');
   }
+  if (p.includes('merchant')) {
+    invalidateContaining('merchant');
+    invalidateContaining('admin/merchants');
+  }
   if (p.includes('card')) {
     invalidateContaining('cards');
     invalidateContaining('members');
@@ -420,8 +424,18 @@ export async function getMerchantProfile(): Promise<Merchant> {
   return get<Merchant>('/merchant/profile');
 }
 
-export async function updateMerchant(_merchantId: string, data: Partial<Merchant>): Promise<Merchant> {
+export async function updateMerchant(
+  merchantId: string,
+  data: Partial<Merchant> & { owner_name?: string; owner_phone?: string; owner_email?: string }
+): Promise<Merchant> {
+  if (merchantId) {
+    return patch<Merchant>(`/admin/merchants/${merchantId}`, data);
+  }
   return patch<Merchant>('/merchant/profile', data);
+}
+
+export async function deleteMerchant(merchantId: string): Promise<void> {
+  return del<void>(`/admin/merchants/${merchantId}`);
 }
 
 export async function createMerchant(data: Partial<Merchant> & { owner_name: string; owner_phone: string; owner_email?: string }): Promise<Merchant> {

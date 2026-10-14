@@ -68,6 +68,9 @@ class MerchantOut(BaseModel):
     referral_bonus_points: Optional[Decimal] = Decimal("50")
     created_at: Optional[datetime] = None
     member_count: Optional[int] = 0
+    owner_name: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -91,7 +94,13 @@ class MerchantUpdate(BaseModel):
     whatsapp_number: Optional[str] = None
     address: Optional[str] = None
     logo_url: Optional[str] = None
+    card_design_url: Optional[str] = None
+    status: Optional[str] = None
+    approval_status: Optional[str] = None
     referral_bonus_points: Optional[Decimal] = None
+    owner_name: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[str] = None
 
 
 # ── MerchantUser ──────────────────────────────────────────────────────────────
